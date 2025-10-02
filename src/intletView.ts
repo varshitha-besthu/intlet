@@ -1,66 +1,45 @@
-import * as vscode from 'vscode';
+import * as vscode from "vscode";
+import * as path from "path";
+import * as fs from "fs";
 
 export class IntletViewProvider implements vscode.WebviewViewProvider {
-  public static readonly viewType = 'intletView';
+  public static readonly viewType = "intletView";
   private _view?: vscode.WebviewView;
 
   constructor(private readonly _context: vscode.ExtensionContext) {}
 
   resolveWebviewView(
     webviewView: vscode.WebviewView,
-    context: vscode.WebviewViewResolveContext,
+    _context: vscode.WebviewViewResolveContext,
     _token: vscode.CancellationToken
   ) {
     this._view = webviewView;
 
     webviewView.webview.options = {
-      enableScripts: true
+      enableScripts: true,
+      localResourceRoots: [
+        vscode.Uri.file(path.join(this._context.extensionPath, "webview-ui", "dist")),
+      ],
     };
 
-    webviewView.webview.html = this.getHtmlForWebview(webviewView.webview);
-
-    webviewView.webview.onDidReceiveMessage((message) => {
-      switch (message.command) {
-        case 'sendInput':
-          vscode.window.showInformationMessage(`You typed: ${message.text}`);
-          break;
-      }
-    });
+    webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
   }
 
-  private getHtmlForWebview(webview: vscode.Webview): string {
-    return /* html */`
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <style>
-          body {
-            font-family: sans-serif;
-            padding: 10px;
-          }
-          input {
-            width: 80%;
-            padding: 6px;
-          }
-          button {
-            padding: 6px 12px;
-            margin-left: 5px;
-          }
-        </style>
-      </head>
-      <body>
-        <input id="inputBox" type="text" placeholder="Type something..." />
-        <button id="sendBtn">Send</button>
+  private _getHtmlForWebview(webview: vscode.Webview): string {
+    const distPath = path.join(this._context.extensionPath, "webview-ui", "dist");
+    const indexPath = path.join(distPath, "index.html");
 
-        <script>
-          const vscode = acquireVsCodeApi();
-          document.getElementById('sendBtn').addEventListener('click', () => {
-            const text = document.getElementById('inputBox').value;
-            vscode.postMessage({ command: 'sendInput', text });
-          });
-        </script>
-      </body>
-      </html>`;
+    let html = fs.readFileSync(indexPath, "utf8");
+
+    // Replace relative paths with webview-safe URIs
+    html = html.replace(/(src|href)="([^"]+)"/g, (match, p1, p2) => {
+      if (p2.startsWith("http") || p2.startsWith("data:")) {
+        return match; // leave external URLs untouched
+      }
+      const assetPath = vscode.Uri.file(path.join(distPath, p2));
+      return `${p1}="${webview.asWebviewUri(assetPath)}"`;
+    });
+
+    return html;
   }
 }

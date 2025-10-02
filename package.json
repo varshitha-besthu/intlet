@@ -6,6 +6,7 @@
   "engines": {
     "vscode": "^1.104.0"
   },
+  
   "categories": [
     "Other"
   ],
@@ -28,7 +29,8 @@
         {
           "id" : "intletView",
           "name": "Coding Agent Panel",
-          "icon": "media/arrow-capsule.svg"
+          "icon": "media/arrow-capsule.svg",
+          "type": "webview"
         }
       ]
     },
