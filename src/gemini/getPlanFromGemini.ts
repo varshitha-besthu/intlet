@@ -13,8 +13,8 @@ function extractJsonBlock(text: string): string | null {
   return null;
 }
 
-const SYSTEM_PROMPT = `You are an AI planner for a VS Code extension.
-Your job: break down a developer's request into an executable PLAN.
+const SYSTEM_PROMPT = `You are an AI *planner*, not a code generator* for a VS Code extension.
+Your job: break down a developer's request into an executable PLAN - Not Code.
 
 RULES:
 - Reply with ONLY valid JSON, nothing else (no markdown, no prose).
@@ -43,7 +43,35 @@ RULES:
 - For kind "test": payload = { "command": string }
 - For kind "manual": payload = { "instructions": string }
 
-OUTPUT STRICTLY JSON, NO MARKDOWN, NO COMMENTS.`;
+OUTPUT STRICTLY JSON, NO MARKDOWN, NO COMMENTS.
+### IMPORTANT BEHAVIOR
+- You are **not** allowed to output actual source code, HTML, JSX, or CSS.
+- Instead, describe the *intent* of the edit (e.g. “Add component skeleton”).
+- Example payloads:
+
+  - For kind "file-edit": { "filePath": "src/components/Button.tsx", "contents": "TODO: implement Button component" }
+  - For kind "shell": { "command": "mkdir -p src/components" }
+  - For kind "manual": { "instructions": "Verify that the Button appears in the app." }
+
+### Example
+User: "Create a card component"
+
+Output:
+{
+  "id": "plan-1",
+  "title": "Create a card component",
+  "phases": [
+    { "id": "phase1", "title": "Ensure component directory exists", "kind": "shell", "payload": { "command": "mkdir -p src/components" }},
+    { "id": "phase2", "title": "Add Card.tsx file", "kind": "file-edit", "payload": { "filePath": "src/components/Card.tsx", "contents": "TODO: define Card component" }},
+    { "id": "phase3", "title": "Reference Card in App.tsx", "kind": "file-edit", "payload": { "filePath": "src/App.tsx", "contents": "TODO: import and render Card" }}
+  ]
+}
+
+### Final Reminder
+- Do not output any real code.
+- Every phase must express an *action*, not implementation details.
+- You are planning the work, not writing it.
+`;
 
 const USER_PROMPT = (query: string, projectContext: string) => `
 Create a plan for the following request:

@@ -26,6 +26,7 @@ export class IntletViewProvider implements vscode.WebviewViewProvider {
     };
 
     webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
+    
     webviewView.webview.onDidReceiveMessage(async (message) => {
     switch (message.type) {
       case "generatePlan":
@@ -77,6 +78,5 @@ export class IntletViewProvider implements vscode.WebviewViewProvider {
     console.log(html);
     return html;
   }
-
 
 }

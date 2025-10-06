@@ -28,6 +28,7 @@ const vscode = acquireVsCodeApi();
 export default function View() {
   const [input, setInput] = useState("");
   const [output, setOutput] = useState<PlanSchema | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {
     console.log("🔌 Listener attached");
@@ -40,7 +41,7 @@ export default function View() {
         if (msg.error) {
           console.error("Error:", msg.error);
         } else {
-          // ✅ store the object, not a string
+          setLoading(false);
           setOutput(msg.plan as PlanSchema);
         }
       }
@@ -52,7 +53,7 @@ export default function View() {
 
   const sendQuery = () => {
     if (input.trim() === "") return;
-
+    setLoading(true);
     console.log("📤 Sending message");
     vscode.postMessage({
       type: "generatePlan",
@@ -70,21 +71,19 @@ export default function View() {
           <div>
             <h1 className="text-2xl font-bold mb-2">{output.title}</h1>
             <p className="text-gray-300 mb-4">{output.description}</p>
-
-            <div className="bg-black text-green-400 text-left p-4 rounded">
+            
+            <div className="bg-black text-green-400 text-left p-4 rounded overflow-x-auto">
               {output.phases.map((phase, index) => (
                 <div key={index} className="mb-4 border-b border-gray-600 pb-2">
                   <h2 className="font-semibold text-lg">{phase.title}</h2>
                   <p className="text-gray-400 mb-1">Kind: {phase.kind}</p>
 
-                  {/* show dependsOn if exists */}
                   {phase.dependsOn && (
                     <p className="text-sm text-gray-500 mb-2">
                       Depends on: {phase.dependsOn.join(", ")}
                     </p>
                   )}
 
-                  {/* render payload details */}
                   {phase.payload.command ? (
                     <div className="text-blue-400">
                       Command: {phase.payload.command}
@@ -106,19 +105,25 @@ export default function View() {
         ) : (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
-              <h1 className="font-bold text-2xl">
-                Complex Code Changes Made Simple
-              </h1>
-              <p className="text-gray-300">
-                Turn hours of coding into minutes with an AI that plans,
-                implements, and reviews every change.
-              </p>
+              {loading ? (<div>
+                Generating plan...
+              </div> )
+              :  (
+              <div>
+                <h1 className="font-bold text-2xl">
+                  Complex Code Changes Made Simple
+                </h1>
+                <p className="text-gray-300">
+                  Turn hours of coding into minutes with an AI that plans,
+                  implements, and reviews every change.
+                </p>
+              </div>)
+              }
             </div>
           </div>
         )}
       </div>
 
-      {/* Input box */}
       <div className="p-2 bg-black flex items-center text-white">
         <input
           type="text"
