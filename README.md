@@ -1,71 +1,111 @@
-# intlet README
+#  Intlet — AI-Powered Plan Executor for VS Code
 
-This is the README for your extension "intlet". After writing up a brief description, we recommend including the following sections.
+**Intlet** is a VS Code extension inspired by _Traycer_, designed to help developers generate, visualize, and execute multi-phase coding plans using **Google Gemini**.
 
-## Features
-
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
-
-For example if there is an image subfolder under your extension project workspace:
-
-\!\[feature X\]\(images/feature-x.png\)
-
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
-
-## Requirements
-
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
-
-## Extension Settings
-
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
-This extension contributes the following settings:
-
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
-
-## Known Issues
-
-Calling out known issues can help limit users opening duplicate issues against your extension.
-
-## Release Notes
-
-Users appreciate release notes as you update your extension.
-
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
+It takes a natural language query (like _"Add a dark mode toggle and commit changes"_) and breaks it into structured, executable phases — shell commands, git commits, file edits, and more.
 
 ---
 
-## Following extension guidelines
+##  Features
 
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
+-  **Natural language → Actionable Plan**
+-  **Phase-based execution**
+-  **Dry-run mode & validation**
+-  **Gemini-powered plan generation**
+-  **Lightweight React UI**
+-  **Secure environment variable handling**
+-  **Type-safe schemas with Zod**
 
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
+---
 
-## Working with Markdown
+## 🛠️ Installation
 
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
+###  Clone the Repository
 
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
+```bash
+git clone https://github.com/your-username/intlet.git
+cd intlet
+```
 
-## For more information
+### Install Dependencies
 
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
+Make sure you have **Node.js ≥ 18** and **VS Code** installed.
 
-**Enjoy!**
+```bash
+npm install
+# or
+yarn install
+```
+
+### Set up your Environment
+
+Create a `.env` file at the project root:
+
+```bash
+GEMINI_API_KEY=your_api_key_here
+```
+
+You can get a free Gemini API key from:  
+[https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
+
+###  Build the Webview UI
+
+Inside the `webview-ui/` folder:
+
+```bash
+cd webview-ui
+npm install
+npm run build
+```
+
+This generates your React UI inside `webview-ui/dist`.
+
+### Run the Extension
+
+Back in the root folder:
+
+```bash
+npm run compile
+# or
+npm run watch
+```
+
+Then open the project in VS Code:
+
+```bash
+code .
+```
+
+Press **F5** to launch a new **Extension Development Host** window.
+
+---
+
+##  Commands
+
+| Command | Description |
+|----------|--------------|
+| `npm install` | Install dependencies |
+| `npm run build` | Build both backend and frontend |
+| `npm run compile` | Compile the VS Code extension |
+| `npm run watch` | Watch for changes and rebuild automatically |
+| `cd webview-ui && npm run dev` | Run React UI in dev mode (for debugging) |
+
+---
+
+## Tech Stack
+
+- **VS Code Extension API**
+- **React + TailwindCSS** for webview UI
+- **Zod** for schema validation
+- **@google/generative-ai (Gemini 2.5 Flash)**
+- **TypeScript** everywhere
+
+---
+
+## Next Steps
+
+- [ ] Add phase execution logs  
+- [ ] Implement dry-run and revert logic  
+- [ ] Introduce streaming updates  
+- [ ] Backup via Git branches  
+
