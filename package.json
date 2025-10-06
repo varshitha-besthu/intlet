@@ -6,7 +6,6 @@
   "engines": {
     "vscode": "^1.104.0"
   },
-  
   "categories": [
     "Other"
   ],
@@ -27,7 +26,7 @@
     "views": {
       "intlet": [
         {
-          "id" : "intletView",
+          "id": "intletView",
           "name": "Coding Agent Panel",
           "icon": "media/arrow-capsule.svg",
           "type": "webview"
@@ -38,10 +37,12 @@
       {
         "command": "intlet.helloWorld",
         "title": "Hello World"
+      },
+      {
+        "command": "traycer.generatePlan",
+        "title": "Traycer: Generate Plan"
       }
     ]
-    
-
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
@@ -52,14 +53,19 @@
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/vscode": "^1.104.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
+    "@types/vscode": "^1.104.0",
     "@typescript-eslint/eslint-plugin": "^8.42.0",
     "@typescript-eslint/parser": "^8.42.0",
-    "eslint": "^9.34.0",
-    "typescript": "^5.9.2",
     "@vscode/test-cli": "^0.0.11",
-    "@vscode/test-electron": "^2.5.2"
+    "@vscode/test-electron": "^2.5.2",
+    "eslint": "^9.34.0",
+    "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "dotenv": "^17.2.3",
+    "zod": "^4.1.11"
   }
 }
