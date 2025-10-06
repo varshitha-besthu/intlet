@@ -1,0 +1,17 @@
+[33mcommit 31f0af19e5fe629f5e0da614dcbce2a999363330[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m
+Author: varshitha-besthu <varshithabesthavemula@gmail.com>
+Date:   Mon Oct 6 14:59:58 2025 +0530
+
+    Add: Connected gemini llm
+
+[33mcommit 24f541078415c70d8293a5e680115468cb8a55e8[m[33m ([m[1;31morigin/main[m[33m)[m
+Author: varshitha-besthu <varshithabesthavemula@gmail.com>
+Date:   Thu Oct 2 22:57:01 2025 +0530
+
+    modify: changed webview from js -> react
+
+[33mcommit b76c621ab60536b88d987c52fbddf573f386a34a[m
+Author: varshitha-besthu <varshithabesthavemula@gmail.com>
+Date:   Wed Oct 1 23:03:09 2025 +0530
+
+    feature: Add sidebar + icon on Action bar
