@@ -3,6 +3,7 @@ import * as path from "path";
 import * as fs from "fs";
 import { getGeminiClient } from "./gemini/client";
 import { getPlanFromGemini } from "./gemini/getPlanFromGemini";
+import { getProjectContext } from "./getProjectInfo";
 
 export class IntletViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "intletView";
@@ -40,8 +41,9 @@ export class IntletViewProvider implements vscode.WebviewViewProvider {
           }
           const client = getGeminiClient();
           try {
-            const plan = await getPlanFromGemini(client, query);
-
+            const projectContext = JSON.stringify(await getProjectContext());
+            const plan = await getPlanFromGemini(client, query, 2, projectContext);
+            console.log("Project Context:",projectContext);
             webviewView.webview.postMessage({
               type: "planGenerated",
               id,

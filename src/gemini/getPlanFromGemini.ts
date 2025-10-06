@@ -18,6 +18,7 @@ Your job: break down a developer's request into an executable PLAN.
 
 RULES:
 - Reply with ONLY valid JSON, nothing else (no markdown, no prose).
+- Don't just spit out the code but give the planning layer I mean you need to plan the output not spit out the code
 - The JSON must match this schema:
 
 {
@@ -44,13 +45,28 @@ RULES:
 
 OUTPUT STRICTLY JSON, NO MARKDOWN, NO COMMENTS.`;
 
-const USER_PROMPT = (query: string) =>
-  `Create a plan for the following request: "${query}"`;
+const USER_PROMPT = (query: string, projectContext: string) => `
+Create a plan for the following request:
+"${query}"
+
+PROJECT CONTEXT:
+${projectContext}
+
+Analyze the project context first — detect:
+- the language and framework used (React, Node.js, Python, etc.)
+- folder structure (e.g., src/, webview-ui/, components/, etc.)
+- styling conventions (Tailwind, CSS modules, etc.)
+- coding language preference (JS or TS)
+
+Then generate a plan that fits **this specific project**.
+Keep file paths and syntax consistent with the detected stack.
+`;
 
 export async function getPlanFromGemini(
   client: ReturnType<typeof import("./client").getGeminiClient>,
   query: string,
-  maxRetries = 2
+  maxRetries = 2,
+  projectContext: string
 ): Promise<Plan> {
   let lastError: unknown;
 
@@ -62,7 +78,7 @@ export async function getPlanFromGemini(
         contents: [
           {
             role: "user",
-            parts: [{ text: SYSTEM_PROMPT + "\n" + USER_PROMPT(query) }],
+            parts: [{ text: SYSTEM_PROMPT + "\n" + USER_PROMPT(query, projectContext) }],
           },
         ],
         generationConfig: { temperature: 0.2 },
