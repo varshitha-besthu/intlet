@@ -1,5 +1,7 @@
+import { analyzeFolder } from "../tools/projectAnalyzer";
 import type { Plan } from "../types/phases";
 import { PlanSchema } from "../types/schema";
+import * as vscode from "vscode";
 
 function extractJsonBlock(text: string): string | null {
   let start = text.indexOf("{");
@@ -13,13 +15,74 @@ function extractJsonBlock(text: string): string | null {
   return null;
 }
 
-const SYSTEM_PROMPT = `You are an AI *planner*, not a code generator* for a VS Code extension.
-Your job: break down a developer's request into an executable PLAN - Not Code.
+const workspace = async() => {
+  const workspaceFolders = vscode.workspace.workspaceFolders;
+    
+  if (!workspaceFolders) {
+    vscode.window.showErrorMessage('Please open a folder or workspace first');
+    return "no workspace folder";
+  }
+      
+  const rootPath = workspaceFolders[0] .uri.fsPath;
+  const folderSturcture =  await analyzeFolder(rootPath);
 
-RULES:
-- Reply with ONLY valid JSON, nothing else (no markdown, no prose).
-- Don't just spit out the code but give the planning layer I mean you need to plan the output not spit out the code
-- The JSON must match this schema:
+  return folderSturcture;
+}
+let folderStructure: string = "";
+
+async function runPlanner() {
+  folderStructure = await workspace(); 
+  console.log("Folder Structure:", folderStructure);
+}
+
+
+const Prompt = (query: string, projectContext: string, folderStructure: string) => `
+You are an **AI Planner**, not a code generator, for a VS Code extension named *Intlet*.
+Your job is to break down a developer's natural-language request into an executable **PLAN**, not actual source code.
+
+---
+
+## BEHAVIORAL INSTRUCTIONS
+
+1. **Analyze** the given project structure and context deeply before planning.  
+2. **Think like a senior engineer** reading a codebase for the first time:
+   - Identify what type of project it is.
+   - Infer the tech stack and architecture (React, Vite, Tailwind, etc.).
+   - Understand the layout (src/components, pages, hooks, etc.).
+   - Recognize how the user’s request would fit naturally into this structure.
+3. Produce two parts in your output:
+   - A **Reasoning** section that describes your understanding of the repo and what you plan to do.
+   - A **JSON Plan** following the required schema.
+
+---
+
+## OUTPUT FORMAT
+
+### STEP 1 — 
+Output  section (plain text, not markdown). It must include:
+
+- High-level understanding of the project (derived from folder structure + context)
+- Key directories and their purposes (like components/, pages/, hooks/, etc.)
+- Technologies inferred from context (from projectContext.techStack, projectContext.languages)
+- Observations about patterns (for example, UI components in /components/ui or hooks in /hooks)
+- A short explanation of *how* and *where* the user's feature request fits logically
+
+
+Example:
+
+I explored the repository and identified that this is a **React + TypeScript + Vite** web application structured around modular components. The folder structure indicates:
+- \`src/components/ui/\` holds reusable UI primitives (button, input, progressBar).
+- \`src/pages/\` contains route-level components such as LandingPage, Dashboard, etc.
+- \`src/hooks/\` contains custom React hooks.
+- \`src/lib/\` and \`src/utils/\` contain helper logic.
+The project uses Tailwind CSS and probably ShadCN components (based on magicui and ui directories).  
+To add a new “Card” component, it should live under \`src/components/\`, follow TypeScript naming conventions, and integrate into an existing page (likely Dashboard or LandingPage).
+
+
+---
+
+### STEP 2 — JSON PLAN
+After reasoning, output **only** one valid JSON object, with no markdown or commentary, following this schema:
 
 {
   "id": "string (unique plan id)",
@@ -36,95 +99,90 @@ RULES:
   ]
 }
 
-- "kind" must be one of the allowed values.
+---
+
+## PAYLOAD RULES
+
 - For kind "file-edit": payload = { "filePath": string, "contents": string }
 - For kind "shell": payload = { "command": string }
 - For kind "git": payload = { "commands": string[] }
 - For kind "test": payload = { "command": string }
 - For kind "manual": payload = { "instructions": string }
 
-OUTPUT STRICTLY JSON, NO MARKDOWN, NO COMMENTS.
-### IMPORTANT BEHAVIOR
-- You are **not** allowed to output actual source code, HTML, JSX, or CSS.
-- Instead, describe the *intent* of the edit (e.g. “Add component skeleton”).
-- Example payloads:
+---
 
-  - For kind "file-edit": { "filePath": "src/components/Button.tsx", "contents": "TODO: implement Button component" }
-  - For kind "shell": { "command": "mkdir -p src/components" }
-  - For kind "manual": { "instructions": "Verify that the Button appears in the app." }
+## CRITICAL RULES
 
-### Example
-User: "Create a card component"
+- **Do not output actual code, JSX, HTML, or CSS.**
+- Every file-edit phase must describe *intent*, not implementation.
+- Output should be **Reasoning** first, then **pure JSON**.
+- Use the provided \`projectContext\` fields to enrich reasoning:
+  - workspace → name of root folder
+  - techStack → identify technologies used
+  - languages → mention key languages (e.g., TypeScript, HTML)
+  - structure → describe architecture (frontend/backend, components, pages)
+  - notes → interpret and summarize purpose of project
+- Optionally, leverage tools.gitStatus, tools.files, or executedPhases to justify the next logical step if provided.
 
-Output:
-{
-  "id": "plan-1",
-  "title": "Create a card component",
-  "phases": [
-    { "id": "phase1", "title": "Ensure component directory exists", "kind": "shell", "payload": { "command": "mkdir -p src/components" }},
-    { "id": "phase2", "title": "Add Card.tsx file", "kind": "file-edit", "payload": { "filePath": "src/components/Card.tsx", "contents": "TODO: define Card component" }},
-    { "id": "phase3", "title": "Reference Card in App.tsx", "kind": "file-edit", "payload": { "filePath": "src/App.tsx", "contents": "TODO: import and render Card" }}
-  ]
-}
+---
 
-### Final Reminder
-- Do not output any real code.
-- Every phase must express an *action*, not implementation details.
-- You are planning the work, not writing it.
-`;
+## INPUT DATA
 
-const USER_PROMPT = (query: string, projectContext: string) => `
-Create a plan for the following request:
-"${query}"
+User Prompt: "${query}"
 
 PROJECT CONTEXT:
-${projectContext}
+${JSON.stringify(projectContext, null, 2)}
 
-Analyze the project context first — detect:
-- the language and framework used (React, Node.js, Python, etc.)
-- folder structure (e.g., src/, webview-ui/, components/, etc.)
-- styling conventions (Tailwind, CSS modules, etc.)
-- coding language preference (JS or TS)
+FOLDER STRUCTURE:
+${folderStructure}
 
-Then generate a plan that fits **this specific project**.
-Keep file paths and syntax consistent with the detected stack.
+---
+
+Now generate:
+1. A concise, clear **Reasoning** section that reads like an engineer's thought process.  
+2. A **valid JSON plan** that executes this reasoning step-by-step.
 `;
 
+
 export async function getPlanFromGemini(
-  client: ReturnType<typeof import("./client").getGeminiClient>,
+  client: any,
   query: string,
   maxRetries = 2,
   projectContext: string
 ): Promise<Plan> {
   let lastError: unknown;
 
-  const model = client.getGenerativeModel({ model: "gemini-2.5-flash" });
-
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      const resp = await model.generateContent({
-        contents: [
-          {
-            role: "user",
-            parts: [{ text: SYSTEM_PROMPT + "\n" + USER_PROMPT(query, projectContext) }],
-          },
+      await runPlanner();
+      console.log("openAiClient (raw):", client);
+      console.log("openAiClient.chat:", client?.chat);
+
+      const resp = await client.chat.completions.create({
+        model: "deepseek/deepseek-chat-v3.1:free",
+        messages: [
+          { role: "user", content: Prompt(query, projectContext, folderStructure) },
         ],
-        generationConfig: { temperature: 0.2 },
       });
 
-      const text =
-        resp.response.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
-      console.log("Gemini raw response:", text);
+      const text = resp.choices?.[0]?.message?.content;
+      console.log("LLM Raw Response:\n", text);
 
-      let parsedPlan;
-      try {
-        parsedPlan = JSON.parse(text);
-      } catch {
-        const block = extractJsonBlock(text);
-        if (block) parsedPlan = JSON.parse(block);
+      if (!text) throw new Error("Empty response from AI");
+
+      const jsonBlock = extractJsonBlock(text);
+      if (!jsonBlock) throw new Error("No valid JSON block found");
+
+      const parsedPlan = JSON.parse(jsonBlock);
+      const reasoningText = text.split(jsonBlock)[0].trim();
+
+      if (reasoningText) {
+        parsedPlan.description = parsedPlan.description
+          ? `${reasoningText}\n\n${parsedPlan.description}`
+          : reasoningText;
       }
 
-      if (!parsedPlan) throw new Error("No valid JSON block found");
+      console.log("Final Parsed Plan:", parsedPlan);
 
       const check = PlanSchema.safeParse(parsedPlan);
       if (check.success) return check.data;
@@ -132,6 +190,7 @@ export async function getPlanFromGemini(
       lastError = check.error;
     } catch (err) {
       lastError = err;
+      console.log("error while connecting to the openRouter", err);
     }
 
     console.warn(`Attempt ${attempt + 1} failed. Retrying...`);
@@ -139,3 +198,4 @@ export async function getPlanFromGemini(
 
   throw new Error("Failed to parse plan from Gemini: " + String(lastError));
 }
+

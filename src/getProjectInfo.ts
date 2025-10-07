@@ -1,19 +1,50 @@
 import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
+import { readFile, listDir, searchInFiles, gitStatus, phaseLog } from "./tools/projectTools";
 
-interface ProjectContext {
+export interface ProjectContext {
   workspace: string;
   techStack: string[];
   languages: string[];
   mainFiles: string[];
   structure: string[];
   notes: string[];
+  tools?: {
+    gitStatus: any;
+    phaseLog: any;
+    files: string[];
+  };
+  executedPhases?: {
+    phaseId: string;
+    status: "pending" | "success" | "failed";
+    output?: string;
+  }[];
 }
 
-export async function getProjectContext(): Promise<ProjectContext> {
+// 🔹 Recursively gather file tree up to a safe depth
+function walkDir(dir: string, depth = 0, maxDepth = 3): string[] {
+  if (depth > maxDepth) return [];
+  const results: string[] = [];
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      results.push(fullPath);
+      results.push(...walkDir(fullPath, depth + 1, maxDepth));
+    } else {
+      results.push(fullPath);
+    }
+  }
+  return results;
+}
+
+export async function getProjectContext(): Promise<ProjectContext & { tools: any }> {
   const workspaceFolders = vscode.workspace.workspaceFolders;
   if (!workspaceFolders) {
+
+    //@ts-ignore
     return {
       workspace: "❌ No workspace open",
       techStack: [],
@@ -21,32 +52,33 @@ export async function getProjectContext(): Promise<ProjectContext> {
       mainFiles: [],
       structure: [],
       notes: ["No folder is open in VSCode."],
+      tools: {}
     };
   }
 
   const rootPath = workspaceFolders[0].uri.fsPath;
-  const entries = fs.readdirSync(rootPath, { withFileTypes: true });
-
-  const files = entries.filter(e => e.isFile()).map(e => e.name);
-  const folders = entries.filter(e => e.isDirectory()).map(e => e.name);
+  const allFiles = walkDir(rootPath);
 
   const context: ProjectContext = {
     workspace: path.basename(rootPath),
     techStack: [],
     languages: [],
     mainFiles: [],
-    structure: folders,
+    structure: [],
     notes: [],
   };
 
-  if (files.includes("package.json")) {
+  // ---- Detect tech stack ----
+  const files = allFiles.map(f => path.basename(f));
+  const detect = (file: string) => files.includes(file);
+
+  if (detect("package.json")) {
     context.techStack.push("Node.js");
     try {
       const pkg = JSON.parse(fs.readFileSync(path.join(rootPath, "package.json"), "utf8"));
       const deps = Object.keys(pkg.dependencies || {});
       const devDeps = Object.keys(pkg.devDependencies || {});
       const allDeps = [...deps, ...devDeps];
-
       if (allDeps.some(d => d.includes("react"))) context.techStack.push("React");
       if (allDeps.some(d => d.includes("vite"))) context.techStack.push("Vite");
       if (allDeps.some(d => d.includes("next"))) context.techStack.push("Next.js");
@@ -58,43 +90,35 @@ export async function getProjectContext(): Promise<ProjectContext> {
     }
   }
 
-  if (files.includes("requirements.txt") || files.includes("pyproject.toml")) {
+  if (detect("requirements.txt") || detect("pyproject.toml")) {
     context.techStack.push("Python");
     context.languages.push("Python");
-    const reqFile = files.includes("requirements.txt")
-      ? "requirements.txt"
-      : "pyproject.toml";
-    const content = fs.readFileSync(path.join(rootPath, reqFile), "utf8");
-    if (content.match(/flask/i)) context.techStack.push("Flask");
-    if (content.match(/django/i)) context.techStack.push("Django");
-    if (content.match(/fastapi/i)) context.techStack.push("FastAPI");
   }
 
-  if (files.includes("pom.xml") || files.includes("build.gradle")) {
+  if (detect("pom.xml") || detect("build.gradle")) {
     context.techStack.push("Java");
     context.languages.push("Java");
-    if (fs.readFileSync(path.join(rootPath, files.find(f => f.includes("pom") || f.includes("gradle"))!), "utf8").match(/spring/i))
-      context.techStack.push("Spring Boot");
   }
 
-  if (folders.includes("src")) {
-    const srcEntries = fs.readdirSync(path.join(rootPath, "src"));
-    if (srcEntries.some(f => f.endsWith(".jsx") || f.endsWith(".tsx"))) context.languages.push("React");
-    if (srcEntries.some(f => f.endsWith(".js"))) context.languages.push("JavaScript");
-    if (srcEntries.some(f => f.endsWith(".py"))) context.languages.push("Python");
-    if (srcEntries.some(f => f.endsWith(".java"))) context.languages.push("Java");
-  }
-
-  if (files.includes("Cargo.toml")) context.techStack.push("Rust");
-  if (files.includes("go.mod")) context.techStack.push("Go");
-  if (files.includes("Gemfile")) context.techStack.push("Ruby on Rails");
-  if (files.includes("composer.json")) context.techStack.push("PHP / Laravel");
-
-  if (files.includes("Dockerfile")) context.notes.push("🚢 Docker project detected");
-  if (files.includes(".github")) context.notes.push("⚙️ GitHub Actions present");
+  if (detect("Cargo.toml")) context.techStack.push("Rust");
+  if (detect("go.mod")) context.techStack.push("Go");
+  if (detect("Gemfile")) context.techStack.push("Ruby on Rails");
+  if (detect("composer.json")) context.techStack.push("PHP / Laravel");
+  if (detect("Dockerfile")) context.notes.push("🚢 Docker project detected");
+  if (detect(".github")) context.notes.push("⚙️ GitHub Actions present");
 
   context.techStack = [...new Set(context.techStack)];
   context.languages = [...new Set(context.languages)];
 
-  return context;
+  return {
+    ...context,
+    tools: {
+      gitStatus: gitStatus(),
+      phaseLog: phaseLog(),
+      files: allFiles.slice(0, 50), 
+      readFile: (relPath: string) => readFile(path.join(rootPath, relPath)),
+      listDir: (relPath: string) => listDir(path.join(rootPath, relPath)),
+      searchInFiles: (term: string) => searchInFiles(term),
+    },
+  };
 }

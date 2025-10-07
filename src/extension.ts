@@ -1,11 +1,11 @@
 import * as vscode from "vscode";
 import { IntletViewProvider } from "./intletView";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { getPlanFromGemini } from "./gemini/getPlanFromGemini";
 import { Plan } from "./types/phases";
 
 import * as path from "path";
 import * as dotenv from "dotenv";
+import { searchInFiles } from "./tools/projectTools";
+import { analyzeFolder } from "./tools/projectAnalyzer";
 
 dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
@@ -56,7 +56,6 @@ export function activate(context: vscode.ExtensionContext) {
             cancellable: false,
           },
           async () => {
-            // const plan: Plan = await getPlanFromGemini(client, query);
             const plan: Plan = {
               id: "veat",
               title : "This is business",
@@ -80,6 +79,40 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  let disposable2 = vscode.commands.registerCommand('folderAnalyzer.analyze', async () => {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    
+    if (!workspaceFolders) {
+      vscode.window.showErrorMessage('Please open a folder or workspace first');
+      return;
+    }
+    
+    const rootPath = workspaceFolders[0].uri.fsPath;
+    
+    vscode.window.withProgress({
+      location: vscode.ProgressLocation.Notification,
+      title: "Analyzing folder structure...",
+      cancellable: true
+    }, async (progress, token) => {
+      try {
+        const folderStructure = await analyzeFolder(rootPath);
+        console.log(folderStructure);
+
+      }catch(error){
+        console.log("error occured while exploring the folder Structure");
+      }
+    })
+  });
+
+  const monster = vscode.commands.registerCommand(
+    "traycer.checksearchdir",
+    () => {
+      const sera =  searchInFiles("No code only plan");
+      console.log("Searching bro can't you wait");
+      console.log("Search results:", sera);
+      vscode.window.showInformationMessage(`Found in ${Object.keys(sera).length} files`);
+    }
+  )
   const sidebar = vscode.window.registerWebviewViewProvider(
 	  "intletView",
 	  new IntletViewProvider(context)
@@ -95,6 +128,8 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(disposable);
 	context.subscriptions.push(helloCommand);
 	context.subscriptions.push(sidebar);
+  context.subscriptions.push(monster);
+  context.subscriptions.push(disposable2);
 }
 
 export function deactivate() {}
