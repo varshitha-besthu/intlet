@@ -1,14 +1,14 @@
 export type PlanSchema = {
   id: string;
   title: string;
-  description?: string;
+  description: string;
   phases: {
     id: string;
     title: string;
     kind: string;
     status: string;
     dependsOn?: string[];
-    payload?: {
+    payload: {
       filePath?: string;
       contents?: string;
       command?: string;
@@ -16,14 +16,16 @@ export type PlanSchema = {
   }[];
 };
 
+
+
 import {atom} from "recoil";
 export const inputState = atom<string>({
   key: "inputState",
   default: "",
 });
 
-export const outputState = atom< PlanSchema | null>({
-  key: "outputState",
+export const planState = atom<PlanSchema | null>({
+  key: "planState",
   default: null,
 });
 

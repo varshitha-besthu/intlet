@@ -1,11 +1,16 @@
+import { RecoilRoot } from "recoil";
 import View from "./components/View"
 
 function App() {
 
   return (
-    <div>
-      <View />
-    </div>
+    <RecoilRoot>
+      <div>
+        <View />
+      </div>
+
+    </RecoilRoot>
+    
   )
 }
 
