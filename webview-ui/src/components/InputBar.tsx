@@ -42,7 +42,8 @@ export default function InputBar() {
                 <button
                     onClick={sendQuery}
                     disabled={loading}
-                    className={`absolute right-2 top-1/2 -translate-y-1/2 border border-neutral-400 text-neutral-300 rounded-xl px-2 py-1 text-sm hover:bg-neutral-800 hover:text-black transition-all ${loading ? "opacity-60 cursor-not-allowed" : ""
+                    className={`absolute right-2 top-1/2 -translate-y-1/2 hover:border-1 hover:border-neutral-400 text-neutral-300 rounded-xl px-2 py-1 text-sm  hover:text-neutral-400
+                         transition-all ${loading ? "opacity-60 cursor-not-allowed" : ""
                         }`}
                 >
                     {loading ? "..." : <SendButton />}

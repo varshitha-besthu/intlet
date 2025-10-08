@@ -3,7 +3,7 @@ import * as path from "path";
 import * as fs from "fs";
 import { getPlanFromGemini } from "./gemini/getPlanFromGemini";
 import { getProjectContext } from "./getProjectInfo";
-import { executePhase, runPlan } from "./agent/agenticLoop";
+import { executePhase } from "./agent/agenticLoop";
 import { Plan } from "./types/phases";
 import { openAiClient } from "./gemini/client";
 
@@ -33,7 +33,7 @@ export class IntletViewProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
-      webviewView.webview.onDidReceiveMessage(async (message) => {
+    webviewView.webview.onDidReceiveMessage(async (message) => {
       switch (message.type) {
         case "generatePlan":
           {
@@ -52,7 +52,7 @@ export class IntletViewProvider implements vscode.WebviewViewProvider {
               const projectContext = (await getProjectContext());
 
               console.log("project Context", projectContext);
-              const plan = await getPlanFromGemini(client, query, 2, JSON.stringify(projectContext));
+              const plan = await getPlanFromGemini(client, query, 2, JSON.stringify(projectContext), false);
               this.currentPlan = plan;
 
               console.log("plan", plan)
@@ -61,8 +61,6 @@ export class IntletViewProvider implements vscode.WebviewViewProvider {
                 id,
                 plan: plan,
               });
-
-              // await runPlan(plan, projectContext, client);
 
             } catch (err: any) {
               webviewView.webview.postMessage({
@@ -74,45 +72,47 @@ export class IntletViewProvider implements vscode.WebviewViewProvider {
           }
           break;
         
-
         case "executePhase":
           {
             const { runId, planId, phaseId } = message;
-            const context = await getProjectContext();
-            const client = openAiClient;
+            try{
+               console.log("Gonna execute the phase");
+                
+                const context = await getProjectContext();
+                const client = openAiClient();
 
-            if(!this.currentPlan) return;
+                if(!this.currentPlan) return;
 
-            const phase = this.currentPlan.phases.find((p) => p.id === phaseId);
-            if (!phase) return;
+                const phase = this.currentPlan.phases.find((p) => p.id === phaseId);
+                if (!phase) return;
 
-            const success = await executePhase(phase, context);
+                const subPhase = await executePhase(phase, context, client);
+                
+                webviewView.webview.postMessage({
+                  type: "subPhaseGenerated",
+                  runId,
+                  phaseId,
+                  subPhase: subPhase
+                });
 
-            webviewView.webview.postMessage({
-              type: "phaseUpdate",
-              runId,
-              phaseId,
-              status: success ? "success" : "failed",
-              
-            });
-            
-            if (!success) {
-              const newPlan = await getPlanFromGemini(
-                client,
-                "Refine plan after failure",
-                2,
-                JSON.stringify(context)
-              );
-              this.currentPlan = newPlan;
+            }catch (err: any) {
               webviewView.webview.postMessage({
-                type: "planGenerated",
-                id: planId,
-                plan: newPlan,
+                type: "subPlanGenerated",
+                runId,
+                planId,
+                error: err.message,
               });
             }
+           
+            
+           
           }
           break;
+
+       
   }});
+
+
     
   }
 

@@ -1,89 +1,72 @@
-import * as vscode from "vscode";
 import { exec } from "child_process";
-import fs from "fs";
-import path from "path";
-import { Phase, Plan } from "../types/phases";
-import { ProjectContext } from "../getProjectInfo";
 import { getPlanFromGemini } from "../gemini/getPlanFromGemini";
+import { ProjectContext } from "../getProjectInfo";
+import { Phase, Plan } from "../types/phases";
+import * as vscode from "vscode";
 
-
-export async function executePhase(phase: Phase, context: ProjectContext) {
+export async function executePhase(
+  phase: Phase,
+  context: ProjectContext,
+  client: any,
+  onUpdate?: (context: ProjectContext) => void
+) {
   try {
-    switch (phase.kind) {
-      case "shell":
-        await new Promise<void>((resolve, reject) => {
-          exec(
-            phase.payload.command,
-            { cwd: vscode.workspace.rootPath },
-            (err) => {
-              if (err) reject(err);
-              else resolve();
-            }
-          );
+    console.log("Inside execute phase");
+    if (phase.kind === 'file-edit') {
+       const subPrompt = `
+        You are continuing the previous planning session. 
+        The parent phase is:
+
+        ${JSON.stringify(phase, null, 2)}
+
+        The previous reasoning and plan context are:
+        ${context.llmHistory?.slice(-2).map(p => p.reasoning).join("\n\n")}
+
+        Your goal:
+        Break this phase into smaller sub-phases. 
+        Each sub-phase should be specific and executable within the scope of this file-edit. 
+        Do not repeat already completed tasks. Focus on detailed actionable edits.
+        `;
+      
+        console.log("file edit")
+        const subPhase: Plan = await getPlanFromGemini(
+          client,
+          subPrompt,
+          2,
+          JSON.stringify(context),
+          true
+        );
+
+        console.log("This is subPhase", subPhase);
+
+        context.executedPhases?.push({ phaseId: phase.id, status: 'pending', output: 'Sub-planning...' });
+        if (onUpdate) onUpdate(context);
+
+        console.log("executed phases till now", context.executedPhases)
+
+        return subPhase;
+      
+    }
+
+    if (phase.kind === 'shell') {
+
+      await new Promise<void>((resolve, reject) => {
+        exec(phase.payload.command, { cwd: vscode.workspace.rootPath }, (err) => {
+          if (err) reject(err);
+          else resolve();
         });
-        break;
-
-      case "manual":
-        console.log("Manual step:", phase.payload?.instructions);
-        break;
-
-      case "git":
-        for (const cmd of phase.payload.commands) {
-          await new Promise<void>((resolve, reject) => {
-            exec(cmd, { cwd: vscode.workspace.rootPath }, (err) => {
-              if (err) reject(err);
-              else resolve();
-            });
-          });
-        }
-        break;
-
-      case "composite":
-        for (const subPhase of phase.payload.phases) {
-          const success = await executePhase(subPhase, context);
-          if (!success) throw new Error(`Sub-phase ${subPhase.id} failed`);
-        }
-        break;
-
-      case "test":
-        if (phase.payload.command) {
-          await new Promise<void>((resolve, reject) => {
-            exec(phase.payload.command!, { cwd: vscode.workspace.rootPath }, (err) => {
-              if (err) reject(err);
-              else resolve();
-            });
-          });
-        }
-        break;
-
+      });
     }
 
-    context.executedPhases?.push({ phaseId: phase.id, status: "success" });
-    console.log(context.executedPhases);
-    return true;
+
+    context.executedPhases?.push({ phaseId: phase.id, status: 'success' });
+    if (onUpdate) onUpdate(context);
+    
+
   } catch (err) {
-    context.executedPhases?.push({
-      phaseId: phase.id,
-      status: "failed",
-      output: String(err),
-    });
-    return false;
+    console.log("Got error while proceeding with the phase");
+    context.executedPhases?.push({ phaseId: phase.id, status: 'failed', output: String(err) });
+    if (onUpdate) onUpdate(context);
+    
   }
-}
-
-
-export async function runPlan(plan: Plan, context: ProjectContext, client: any) {
-  context.executedPhases = [];
-
-  for (const phase of plan.phases) {
-    const success = await executePhase(phase, context);
-
-    if (!success) {
-      console.log(`Phase ${phase.id} failed. Asking Gemini to replan...`);
-      const newPlan = await getPlanFromGemini(client, "Refine plan after failure", 2, JSON.stringify(context));
-      return runPlan(newPlan, context, client);
-    }
-  }
-
-  return context;
 }

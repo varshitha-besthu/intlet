@@ -20,9 +20,13 @@ export interface ProjectContext {
     status: "pending" | "success" | "failed";
     output?: string;
   }[];
+  llmHistory?: {
+    query: string;
+    reasoning: string;
+    planJson: string;
+  }[]
 }
 
-// 🔹 Recursively gather file tree up to a safe depth
 function walkDir(dir: string, depth = 0, maxDepth = 3): string[] {
   if (depth > maxDepth) return [];
   const results: string[] = [];
